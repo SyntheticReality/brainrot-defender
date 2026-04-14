@@ -82,10 +82,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "blocked.html",
-        "blocked.js",
-        "schedule.js",
-        "unblock-flow.js"
+        "blocked.html"
       ],
       "matches": [
         "<all_urls>"

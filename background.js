@@ -251,12 +251,14 @@ async function redirectTabIfBlocked(tabId, url, options = {}) {
   const settings = options.settings ?? (await getSettings());
 
   if (!isBlockedNow(settings)) {
+    await clearBlockedTabContext(tabId);
     return false;
   }
 
   const site = getSiteForUrl(url, settings);
 
   if (!site) {
+    await clearBlockedTabContext(tabId);
     return false;
   }
 
@@ -486,7 +488,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         "isBlockingActive",
         "lastSyncError",
         "lastSyncedAt",
-        "nextBoundaryAt"
+        "nextBoundaryAt",
+        "settingsSnapshot"
       ])
     ])
       .then(([contexts, runtimeState]) => {

@@ -626,13 +626,8 @@ export function getBlockedPagePath(siteId = "") {
   return `/blocked.html${query}`;
 }
 
-export function getBlockedPageUrl(siteId, sourceUrl = "") {
+export function getBlockedPageUrl(siteId) {
   const pageUrl = new URL(chrome.runtime.getURL(getBlockedPagePath(siteId)));
-
-  if (sourceUrl) {
-    pageUrl.searchParams.set("from", sourceUrl);
-  }
-
   return pageUrl.toString();
 }
 

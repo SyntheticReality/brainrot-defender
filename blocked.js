@@ -1,22 +1,47 @@
-import { getSettings, getSiteForUrl, isBlockedNow } from "./schedule.js";
+import { getSiteForUrl, isBlockedNow } from "./schedule.js";
 
-const searchParams = new URLSearchParams(window.location.search);
-const sourceUrl = searchParams.get("from") || "";
-
-async function maybeResumeSourceUrl() {
-  if (!sourceUrl) {
-    return;
+function isTrustedResumeUrl(value) {
+  if (typeof value !== "string" || !value) {
+    return false;
   }
 
   try {
-    const settings = await getSettings();
-    const shouldStillBlock = isBlockedNow(settings) && Boolean(getSiteForUrl(sourceUrl, settings));
+    const candidate = new URL(value);
+    return candidate.protocol === "http:" || candidate.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
-    if (!shouldStillBlock) {
+function shouldStayBlocked(sourceUrl, runtimeState) {
+  if (!isTrustedResumeUrl(sourceUrl)) {
+    return true;
+  }
+
+  const settingsSnapshot = runtimeState?.settingsSnapshot;
+
+  if (!settingsSnapshot) {
+    return runtimeState?.isBlockingActive !== false;
+  }
+
+  return isBlockedNow(settingsSnapshot) && Boolean(getSiteForUrl(sourceUrl, settingsSnapshot));
+}
+
+async function maybeResumeSourceUrl() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "brainrot-get-blocked-context" });
+
+    if (!response?.ok) {
+      return;
+    }
+
+    const sourceUrl = response.context?.sourceUrl ?? "";
+
+    if (isTrustedResumeUrl(sourceUrl) && !shouldStayBlocked(sourceUrl, response.runtimeState)) {
       window.location.replace(sourceUrl);
     }
   } catch (error) {
-    console.error("Brainrot Defender blocked page sync failed.", error);
+    console.error("Brainrot Defender blocked page resume check failed.", error);
   }
 }
 

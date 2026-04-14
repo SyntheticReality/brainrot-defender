@@ -136,7 +136,6 @@ function buildBlockedPageUrl(siteId) {
     blockedUrl.searchParams.set("site", siteId);
   }
 
-  blockedUrl.searchParams.set("from", window.location.href);
   return blockedUrl.toString();
 }
 
