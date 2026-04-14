@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brainrot Defender</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --panel: rgba(13, 8, 26, 0.96);
+        --panel-soft: linear-gradient(
+          180deg,
+          rgba(54, 40, 88, 0.64) 0%,
+          rgba(24, 15, 42, 0.88) 38%,
+          rgba(12, 9, 24, 0.96) 100%
+        );
+        --line: rgba(179, 168, 216, 0.22);
+        --text: #f7f6ff;
+        --muted: #b3a8d8;
+        --accent: #d9ff2f;
+        --danger: #ff4f80;
+        --shadow: 0 24px 56px rgba(0, 0, 0, 0.4);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      body {
+        margin: 0;
+        width: 340px;
+        max-width: 100vw;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(217, 255, 47, 0.16), transparent 26%),
+          radial-gradient(circle at top right, rgba(141, 255, 235, 0.12), transparent 30%),
+          linear-gradient(160deg, #090412 0%, #13081f 48%, #05030c 100%);
+        color: var(--text);
+        font-family: "Segoe UI Variable", Aptos, sans-serif;
+      }
+
+      main {
+        width: 100%;
+        padding: 8px;
+      }
+
+      .shell {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        border-radius: 24px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 20%),
+          linear-gradient(145deg, rgba(19, 12, 33, 0.98), rgba(8, 5, 17, 0.98));
+        border: 1px solid rgba(217, 255, 47, 0.16);
+        box-shadow:
+          var(--shadow),
+          0 0 0 1px rgba(141, 255, 235, 0.06) inset,
+          0 0 28px rgba(141, 255, 235, 0.08);
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      header {
+        display: grid;
+        gap: 10px;
+        justify-items: center;
+        text-align: center;
+      }
+
+      .save-row,
+      .hours-toolbar,
+      .sites-toolbar,
+      .site-row,
+      .suggested-row,
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .save-row,
+      .hours-toolbar,
+      .sites-toolbar,
+      .site-row,
+      .suggested-row {
+        justify-content: space-between;
+      }
+
+      .save-row {
+        display: block;
+      }
+
+      h1 {
+        font-size: 2.1rem;
+        line-height: 0.92;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transform: skew(-8deg);
+        background: linear-gradient(
+          180deg,
+          #ffffff 0%,
+          #f6ebff 16%,
+          #d9ff2f 40%,
+          #8dffeb 68%,
+          #ffffff 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-stroke: 1px rgba(255, 255, 255, 0.18);
+        text-shadow:
+          0 2px 0 rgba(255, 255, 255, 0.12),
+          0 8px 18px rgba(141, 255, 235, 0.18),
+          0 14px 30px rgba(217, 255, 47, 0.2);
+      }
+
+      .status-copy,
+      .meta-copy,
+      .message,
+      .hour-index {
+        color: var(--muted);
+      }
+
+      .metric-card,
+      .panel,
+      .runtime-toggle,
+      .site-row,
+      .suggested-row,
+      .hour-row {
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+          0 10px 24px rgba(0, 0, 0, 0.18),
+          0 0 18px rgba(141, 255, 235, 0.04);
+      }
+
+      .metric-card,
+      .panel,
+      .runtime-toggle {
+        padding: 12px;
+      }
+
+      .metric-label,
+      .panel-title {
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 0.74rem;
+        color: var(--muted);
+      }
+
+      .panel-title.centered {
+        text-align: center;
+      }
+
+      .toolbar-centered {
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .metric-card {
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+        text-align: center;
+      }
+
+      .insights-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        align-items: start;
+      }
+
+      .insight-card {
+        min-height: 98px;
+        align-content: start;
+      }
+
+      .insight-card.wide {
+        grid-column: 1 / -1;
+      }
+
+      .next-change-card {
+        min-height: 0;
+        gap: 4px;
+      }
+
+      .today-panel {
+        grid-column: 1 / -1;
+      }
+
+      .today-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .today-metric {
+        min-height: 98px;
+      }
+
+      .today-threat-row {
+        width: 100%;
+        min-height: 42px;
+        display: grid;
+        place-items: center;
+      }
+
+      .today-threat-row .insight-value {
+        display: block;
+        min-width: 0;
+        text-align: center;
+        line-height: 1.05;
+      }
+
+      .metric-value {
+        font-size: 2.25rem;
+        line-height: 1;
+        font-weight: 800;
+      }
+
+      .insight-value {
+        font-size: 1.06rem;
+        line-height: 1.15;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+      }
+
+      .insight-detail {
+        font-size: 0.78rem;
+        line-height: 1.3;
+        color: var(--muted);
+      }
+
+      .status-chip,
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font: 700 0.86rem/1 "Segoe UI Variable", Aptos, sans-serif;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .status-chip {
+        cursor: default;
+        position: relative;
+        isolation: isolate;
+        overflow: visible;
+        z-index: 1;
+        padding: 5px 10px;
+        font-size: 0.67rem;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: #ffffff;
+        text-shadow:
+          0 0 2px rgba(255, 255, 255, 1),
+          0 0 12px rgba(255, 255, 255, 1),
+          0 0 28px rgba(255, 255, 255, 0.7);
+      }
+
+      .status-chip::before {
+        content: "";
+        position: absolute;
+        inset: -12px;
+        border-radius: 999px;
+        pointer-events: none;
+        opacity: 0;
+        filter: blur(16px);
+        z-index: -1;
+      }
+
+      .status-chip:disabled {
+        opacity: 1;
+        cursor: default;
+      }
+
+      .status-chip.defending {
+        background:
+          radial-gradient(circle at top, rgba(244, 255, 226, 1), transparent 58%),
+          linear-gradient(180deg, #baff4f 0%, #44ff00 100%);
+        box-shadow:
+          0 0 0 1px rgba(239, 255, 205, 0.6) inset,
+          0 0 18px rgba(85, 255, 0, 0.48),
+          0 0 36px rgba(85, 255, 0, 0.22);
+      }
+
+      .status-chip.defending::before {
+        opacity: 1;
+        background: radial-gradient(
+          circle,
+          rgba(117, 255, 24, 0.96) 0%,
+          rgba(117, 255, 24, 0.7) 38%,
+          rgba(117, 255, 24, 0.24) 66%,
+          rgba(117, 255, 24, 0) 100%
+        );
+      }
+
+      .status-chip.armed {
+        background:
+          radial-gradient(circle at top, rgba(222, 249, 255, 0.92), transparent 58%),
+          linear-gradient(180deg, #7ff2ff 0%, #2f91ff 100%);
+        box-shadow:
+          0 0 0 1px rgba(214, 244, 255, 0.5) inset,
+          0 0 18px rgba(67, 177, 255, 0.36),
+          0 0 32px rgba(67, 177, 255, 0.18);
+      }
+
+      .status-chip.armed::before {
+        opacity: 1;
+        background: radial-gradient(
+          circle,
+          rgba(86, 205, 255, 0.88) 0%,
+          rgba(86, 205, 255, 0.5) 42%,
+          rgba(86, 205, 255, 0.18) 68%,
+          rgba(86, 205, 255, 0) 100%
+        );
+      }
+
+      .status-chip.disabled {
+        background:
+          radial-gradient(circle at top, rgba(255, 151, 180, 0.4), transparent 65%),
+          linear-gradient(180deg, rgba(255, 100, 143, 0.36) 0%, rgba(146, 23, 61, 0.92) 100%);
+        color: #fff3f7;
+        box-shadow:
+          0 0 0 1px rgba(255, 100, 143, 0.22) inset,
+          0 0 16px rgba(255, 100, 143, 0.34),
+          0 0 28px rgba(255, 100, 143, 0.14);
+      }
+
+      .status-chip.disabled::before {
+        opacity: 1;
+        background: radial-gradient(
+          circle,
+          rgba(255, 96, 146, 0.66) 0%,
+          rgba(255, 96, 146, 0.32) 52%,
+          rgba(255, 96, 146, 0) 100%
+        );
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.68;
+        cursor: wait;
+      }
+
+      .primary {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 28%),
+          linear-gradient(180deg, #efff82 0%, #c9f11b 100%);
+        color: #111;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.22) inset,
+          0 12px 24px rgba(201, 241, 27, 0.18);
+      }
+
+      .danger {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 28%),
+          linear-gradient(180deg, #ff6f98 0%, #d62d61 100%);
+        color: #fff6fb;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+          0 12px 24px rgba(214, 45, 97, 0.16);
+      }
+
+      .ghost {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 32%),
+          linear-gradient(180deg, rgba(57, 45, 90, 0.9) 0%, rgba(22, 15, 40, 0.96) 100%);
+        color: var(--text);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+          0 8px 18px rgba(0, 0, 0, 0.18);
+      }
+
+      .center-action {
+        display: flex;
+        justify-content: center;
+      }
+
+      .center-action button {
+        min-width: 160px;
+      }
+
+      .panel {
+        display: grid;
+        gap: 10px;
+      }
+
+      .days-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .day-chip {
+        display: grid;
+      }
+
+      .day-chip input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .day-chip span {
+        min-height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 32%),
+          linear-gradient(180deg, rgba(46, 35, 75, 0.92) 0%, rgba(18, 12, 33, 0.98) 100%);
+        color: var(--muted);
+        cursor: pointer;
+        font-weight: 700;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+          0 8px 16px rgba(0, 0, 0, 0.12);
+      }
+
+      .day-chip input:checked + span {
+        color: #111;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 30%),
+          linear-gradient(180deg, #f5ff8c 0%, #c8ef20 100%);
+        border-color: rgba(217, 255, 47, 0.6);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+          0 0 16px rgba(217, 255, 47, 0.2);
+      }
+
+      .hours-list,
+      .site-list,
+      .suggested-list {
+        display: grid;
+        gap: 4px;
+      }
+
+      .compact-list {
+        justify-items: center;
+      }
+
+      .compact-summary,
+      .compact-row {
+        min-height: 36px;
+        display: grid;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 34%),
+          linear-gradient(180deg, rgba(26, 18, 44, 0.96) 0%, rgba(11, 8, 22, 0.98) 100%);
+        color: var(--text);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+          0 8px 18px rgba(0, 0, 0, 0.14);
+      }
+
+      .compact-summary {
+        grid-column: 1 / -1;
+        justify-items: center;
+        text-align: center;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .compact-list .compact-row,
+      .compact-list .empty-state {
+        width: min(100%, 244px);
+        text-align: center;
+      }
+
+      .compact-list .compact-row {
+        justify-items: center;
+      }
+
+      .compact-site-row {
+        padding: 7px 10px;
+      }
+
+      .compact-list .compact-site-row .site-meta {
+        justify-content: center;
+        text-align: center;
+      }
+
+      .hour-row,
+      .site-row,
+      .suggested-row {
+        padding: 7px 9px;
+      }
+
+      .hour-row {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) auto minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .hour-index {
+        min-width: 44px;
+        font-size: 0.68rem;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+
+      input[type="time"],
+      input[type="text"] {
+        width: 100%;
+        border: 1px solid rgba(179, 168, 216, 0.24);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 34%),
+          linear-gradient(180deg, rgba(17, 12, 31, 0.98) 0%, rgba(6, 5, 14, 0.98) 100%);
+        color: var(--text);
+        font: inherit;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+          0 0 14px rgba(141, 255, 235, 0.04);
+      }
+
+      .site-meta {
+        display: flex;
+        gap: 5px;
+        align-items: baseline;
+        flex-wrap: wrap;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .site-title {
+        font-size: 0.85rem;
+        overflow-wrap: anywhere;
+      }
+
+      .toggle-button {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        white-space: nowrap;
+      }
+
+      .toggle-button::after {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: translateY(-1px) rotate(45deg);
+        transition: transform 140ms ease;
+      }
+
+      .toggle-button[aria-expanded="true"]::after {
+        transform: translateY(1px) rotate(225deg);
+      }
+
+      .site-row,
+      .suggested-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px;
+        align-items: center;
+      }
+
+      .site-form {
+        display: grid;
+        gap: 10px;
+      }
+
+      .site-form-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .site-form-row input {
+        min-width: 0;
+      }
+
+      .site-row button,
+      .suggested-row button {
+        flex-shrink: 0;
+      }
+
+      .icon-button {
+        min-width: 20px;
+        width: 20px;
+        min-height: 20px;
+        height: 20px;
+        padding: 0;
+        border-radius: 999px;
+        display: inline-grid;
+        place-items: center;
+        font-size: 0.6rem;
+        font-weight: 900;
+        line-height: 1;
+        justify-self: end;
+      }
+
+      .site-remove-button {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 34%),
+          linear-gradient(180deg, #ff688f 0%, #c21f4f 100%);
+        color: #fff4f8;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+          0 0 12px rgba(255, 79, 128, 0.22);
+      }
+
+      .runtime-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+      }
+
+      .runtime-row strong,
+      .runtime-row span,
+      .message,
+      .challenge-phrase {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .runtime-row strong {
+        text-align: right;
+      }
+
+      @media (max-width: 380px) {
+        body {
+          width: 100vw;
+        }
+
+        .shell {
+          padding: 12px;
+        }
+
+        .save-row,
+        .site-row,
+        .suggested-row,
+        .site-form-row,
+        .hours-toolbar,
+        .sites-toolbar {
+          flex-wrap: wrap;
+        }
+
+        .hour-row {
+          grid-template-columns: 44px minmax(0, 1fr) auto;
+        }
+
+        .hour-row [data-role="start"] {
+          grid-column: 2 / 4;
+        }
+
+        .hour-row [data-role="end"] {
+          grid-column: 2 / 4;
+        }
+
+        .hour-row span {
+          grid-column: 1 / 2;
+        }
+
+        .hour-row button {
+          grid-column: 1 / 4;
+        }
+
+        .site-form-row {
+          grid-template-columns: 1fr;
+        }
+
+        .runtime-row {
+          grid-template-columns: 1fr;
+        }
+
+        .runtime-row strong {
+          text-align: left;
+        }
+      }
+
+      .empty-state {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .runtime-toggle summary {
+        cursor: pointer;
+        list-style: none;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-align: center;
+      }
+
+      .runtime-toggle summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .runtime-body {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .overlay[hidden] {
+        display: none;
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: rgba(2, 2, 6, 0.72);
+        backdrop-filter: blur(8px);
+      }
+
+      .modal {
+        width: min(100%, 360px);
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 79, 128, 0.22);
+        background: linear-gradient(155deg, rgba(31, 12, 32, 0.98), rgba(16, 8, 22, 0.98));
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      .modal h2 {
+        text-align: center;
+      }
+
+      .challenge-phrase {
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px dashed rgba(217, 255, 47, 0.26);
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .error-copy {
+        color: #ffb8cf;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell">
+        <header>
+          <h1>Brainrot Defender</h1>
+          <button class="status-chip disabled" id="status-chip" type="button" disabled>
+            DISABLED
+          </button>
+        </header>
+
+        <div class="insights-grid" id="insights-grid" hidden>
+          <div class="metric-card insight-card wide next-change-card">
+            <div class="metric-label" id="next-change-label">NEXT DEFENSE</div>
+            <strong class="insight-value" id="next-change-value">STANDBY</strong>
+          </div>
+
+          <div class="panel today-panel">
+            <div class="panel-title centered">TODAY</div>
+            <div class="today-metrics">
+              <div class="metric-card today-metric" id="attempts-card" hidden>
+                <div class="metric-label">DEFENSES</div>
+                <strong class="metric-value" id="attempts-total">0</strong>
+              </div>
+
+              <div class="metric-card today-metric">
+                <div class="metric-label">TOP THREAT</div>
+                <div class="today-threat-row" id="top-threat-row">
+                  <strong class="insight-value" id="top-temptation-value">CLEAN</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form id="settings-form" class="panel">
+          <div class="panel-title centered">ACTIVE DAYS</div>
+          <div class="days-grid" id="days-grid"></div>
+
+          <div class="panel">
+            <div class="hours-toolbar" id="hours-toolbar">
+              <div class="panel-title" id="hours-title">ACTIVE HOURS</div>
+              <button class="ghost" id="add-window-button" type="button">Add Block</button>
+            </div>
+            <div class="hours-list" id="hours-list"></div>
+          </div>
+
+          <div class="save-row" id="save-row">
+            <p class="message" id="save-message"></p>
+          </div>
+        </form>
+
+        <section class="panel">
+          <div class="sites-toolbar" id="sites-toolbar">
+            <div class="panel-title" id="site-panel-title">BLOCKED SITES</div>
+            <button
+              class="ghost toggle-button"
+              id="site-toggle-button"
+              type="button"
+              aria-controls="site-list"
+              aria-expanded="false"
+              hidden
+            >
+              0 SITES
+            </button>
+          </div>
+          <div class="site-list" id="site-list"></div>
+
+          <section id="suggested-section" hidden>
+            <div class="suggested-list" id="suggested-list"></div>
+          </section>
+
+          <form class="site-form" id="site-form" hidden>
+            <label class="panel-title" for="site-input">Add Site</label>
+            <div class="site-form-row">
+              <input id="site-input" type="text" autocomplete="off" placeholder="reddit.com" />
+              <button class="primary" id="site-add-button" type="submit">Add</button>
+            </div>
+            <p class="message" id="site-message"></p>
+          </form>
+        </section>
+
+        <div class="center-action">
+          <button id="mode-action-button" class="primary" type="button">ENABLE</button>
+        </div>
+
+        <details class="runtime-toggle">
+          <summary>Developer Information</summary>
+          <div class="runtime-body">
+            <div class="runtime-row">
+              <span class="meta-copy">Dynamic rules</span>
+              <strong id="active-rules-copy">Loading...</strong>
+            </div>
+            <div class="runtime-row">
+              <span class="meta-copy">Last sync</span>
+              <strong id="last-sync-copy">Loading...</strong>
+            </div>
+            <div class="runtime-row">
+              <span class="meta-copy">Issue</span>
+              <strong class="error-copy" id="sync-error-copy">None</strong>
+            </div>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <div class="overlay" id="unblock-overlay" hidden>
+      <section class="modal">
+        <h2 id="modal-title">ARE YOU SURE?!</h2>
+        <p class="status-copy" id="modal-description"></p>
+        <div class="challenge-phrase" id="modal-phrase"></div>
+        <input id="modal-input" type="text" autocomplete="off" />
+        <p class="error-copy" id="modal-error"></p>
+        <div class="modal-actions">
+          <button class="ghost" id="modal-cancel-button" type="button">Cancel</button>
+          <button class="danger" id="modal-confirm-button" type="button">GIVE UP</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

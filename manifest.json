@@ -1,0 +1,95 @@
+{
+  "manifest_version": 3,
+  "name": "Brainrot Defender",
+  "version": "1.1.0",
+  "description": "Kills brainrot spirals with scheduled site blocking and a brutal unblock flow.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "alarms",
+    "storage",
+    "tabs",
+    "webNavigation",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "*://x.com/*",
+    "*://*.x.com/*",
+    "*://twitter.com/*",
+    "*://*.twitter.com/*",
+    "*://linkedin.com/*",
+    "*://*.linkedin.com/*",
+    "*://facebook.com/*",
+    "*://*.facebook.com/*",
+    "*://youtube.com/*",
+    "*://*.youtube.com/*",
+    "*://youtu.be/*",
+    "*://*.youtu.be/*",
+    "*://youtube-nocookie.com/*",
+    "*://*.youtube-nocookie.com/*",
+    "*://instagram.com/*",
+    "*://*.instagram.com/*",
+    "*://tiktok.com/*",
+    "*://*.tiktok.com/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://x.com/*",
+        "*://*.x.com/*",
+        "*://twitter.com/*",
+        "*://*.twitter.com/*",
+        "*://instagram.com/*",
+        "*://*.instagram.com/*",
+        "*://tiktok.com/*",
+        "*://*.tiktok.com/*",
+        "*://facebook.com/*",
+        "*://*.facebook.com/*",
+        "*://linkedin.com/*",
+        "*://*.linkedin.com/*",
+        "*://youtube.com/*",
+        "*://*.youtube.com/*",
+        "*://youtu.be/*",
+        "*://*.youtu.be/*",
+        "*://youtube-nocookie.com/*",
+        "*://*.youtube-nocookie.com/*"
+      ],
+      "js": [
+        "page-guard.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "Brainrot Defender",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "blocked.html",
+        "blocked.js",
+        "schedule.js",
+        "unblock-flow.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

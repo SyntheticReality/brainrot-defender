@@ -1,0 +1,18 @@
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Browser extension packaging/signing artifacts
+*.crx
+*.pem
+*.zip
