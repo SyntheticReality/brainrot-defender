@@ -13,13 +13,21 @@ import {
   getOriginPatternsForSite,
   getSelectedDaySummary,
   getSettings,
+  getSiteById,
   getSuggestedSiteById,
   getTopAttemptSite,
   normalizeAttemptStats,
   normalizeDomainInput,
   saveSettings
 } from "./schedule.js";
-import { UNBLOCK_STEPS, isMatchingUnblockPhrase } from "./unblock-flow.js";
+import {
+  UNBLOCK_CHALLENGE_HISTORY_KEY,
+  createUnblockChallenge,
+  isMatchingUnblockPhrase,
+  normalizeUnblockChallengeHistory,
+  recordUnblockChallengeHistory,
+  resolveChallengePhrase
+} from "./unblock-flow.js";
 
 const settingsForm = document.getElementById("settings-form");
 const daysGridElement = document.getElementById("days-grid");
@@ -52,7 +60,11 @@ const lastSyncCopyElement = document.getElementById("last-sync-copy");
 const syncErrorCopyElement = document.getElementById("sync-error-copy");
 const unblockOverlayElement = document.getElementById("unblock-overlay");
 const modalTitleElement = document.getElementById("modal-title");
+const modalContextElement = document.getElementById("modal-context");
 const modalDescriptionElement = document.getElementById("modal-description");
+const modalChoiceGroupElement = document.getElementById("modal-choice-group");
+const modalChoiceLabelElement = document.getElementById("modal-choice-label");
+const modalChoiceListElement = document.getElementById("modal-choice-list");
 const modalPhraseElement = document.getElementById("modal-phrase");
 const modalInputElement = document.getElementById("modal-input");
 const modalErrorElement = document.getElementById("modal-error");
@@ -62,6 +74,8 @@ const modalConfirmButtonElement = document.getElementById("modal-confirm-button"
 let currentSettings = null;
 let currentRuntimeState = null;
 let unblockStepIndex = 0;
+let unblockChallengeSession = null;
+let selectedConsequenceId = "";
 let unblockBusy = false;
 let autoSaveTimer = null;
 let autoSavePending = false;
@@ -440,18 +454,177 @@ function renderRuntime(settings, runtimeState) {
   syncErrorCopyElement.textContent = runtimeState.lastSyncError || "None";
 }
 
+function getBlockedSiteLabel(siteId, runtimeState, sourceUrl = "") {
+  if (siteId) {
+    const currentSite = currentSettings ? getSiteById(currentSettings, siteId) : null;
+    const snapshotSite = runtimeState?.settingsSnapshot
+      ? getSiteById(runtimeState.settingsSnapshot, siteId)
+      : null;
+    const matchedSite = currentSite ?? snapshotSite;
+
+    if (matchedSite?.label) {
+      return matchedSite.label;
+    }
+  }
+
+  if (sourceUrl) {
+    try {
+      return new URL(sourceUrl).hostname.replace(/^www\./, "");
+    } catch {
+      return "this site";
+    }
+  }
+
+  return "this site";
+}
+
+function buildUnblockChallengeContext(response) {
+  const blockedContext = response?.context ?? null;
+  const runtimeState = response?.runtimeState ?? {};
+  const attemptStats = normalizeAttemptStats(
+    response?.attemptStats ?? currentRuntimeState?.attemptStats ?? {}
+  );
+  const siteId = blockedContext?.siteId ?? "";
+  const siteAttemptCountToday = siteId ? attemptStats.bySiteId[siteId] ?? 0 : 0;
+
+  return {
+    siteLabel: getBlockedSiteLabel(siteId, runtimeState, blockedContext?.sourceUrl ?? ""),
+    siteAttemptCountToday,
+    totalAttemptsToday: attemptStats.total ?? 0,
+    hasBlockedContext: Boolean(blockedContext)
+  };
+}
+
+async function getActiveTabId() {
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return Number.isInteger(activeTab?.id) ? activeTab.id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadUnblockChallengeHistory() {
+  const stored = await chrome.storage.local.get(UNBLOCK_CHALLENGE_HISTORY_KEY);
+  return normalizeUnblockChallengeHistory(stored[UNBLOCK_CHALLENGE_HISTORY_KEY]);
+}
+
+async function buildUnblockChallengeSession() {
+  const activeTabId = await getActiveTabId();
+  const history = await loadUnblockChallengeHistory();
+  let context = {
+    siteLabel: "this site",
+    siteAttemptCountToday: 0,
+    totalAttemptsToday: getAttemptTotal(currentRuntimeState?.attemptStats, new Date()),
+    hasBlockedContext: false
+  };
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "brainrot-get-blocked-context",
+      tabId: activeTabId
+    });
+
+    if (response?.ok) {
+      context = buildUnblockChallengeContext(response);
+    }
+  } catch (error) {
+    console.error("Brainrot Defender unblock context lookup failed.", error);
+  }
+
+  const challengeSession = createUnblockChallenge(context, history);
+  const nextHistory = recordUnblockChallengeHistory(history, challengeSession);
+  await chrome.storage.local.set({ [UNBLOCK_CHALLENGE_HISTORY_KEY]: nextHistory });
+  return challengeSession;
+}
+
+function getCurrentModalStep() {
+  return unblockChallengeSession?.steps?.[unblockStepIndex] ?? null;
+}
+
+function getSelectedConsequence(step = getCurrentModalStep()) {
+  if (!step?.consequenceOptions?.length) {
+    return null;
+  }
+
+  return step.consequenceOptions.find((option) => option.id === selectedConsequenceId) ?? null;
+}
+
+function renderConsequenceChoices(step) {
+  const consequenceOptions = step?.consequenceOptions ?? [];
+
+  setElementVisible(modalChoiceGroupElement, consequenceOptions.length > 0);
+
+  if (consequenceOptions.length === 0) {
+    modalChoiceLabelElement.textContent = "";
+    modalChoiceListElement.textContent = "";
+    return;
+  }
+
+  modalChoiceLabelElement.textContent = step.choicePrompt;
+  modalChoiceListElement.textContent = "";
+
+  for (const option of consequenceOptions) {
+    const button = document.createElement("button");
+    const selected = option.id === selectedConsequenceId;
+    button.type = "button";
+    button.className = "consequence-option";
+    button.dataset.consequenceId = option.id;
+    button.setAttribute("aria-pressed", String(selected));
+
+    const title = document.createElement("strong");
+    title.textContent = option.label;
+
+    const description = document.createElement("span");
+    description.textContent = option.description;
+
+    button.append(title, description);
+    modalChoiceListElement.append(button);
+  }
+}
+
 function renderModal() {
-  const step = UNBLOCK_STEPS[unblockStepIndex];
+  const step = getCurrentModalStep();
+
+  if (!step) {
+    return;
+  }
+
+  const selectedConsequence = getSelectedConsequence(step);
+  const resolvedPhrase = resolveChallengePhrase(step, selectedConsequence);
+  const waitingForChoice = Boolean(step.consequenceOptions?.length) && !selectedConsequence;
+
   modalTitleElement.textContent = step.title;
+  setElementVisible(modalTitleElement, Boolean(step.title));
   modalDescriptionElement.textContent = step.description;
-  modalPhraseElement.textContent = step.phrase;
+  setElementVisible(modalDescriptionElement, Boolean(step.description));
+  modalContextElement.textContent = unblockChallengeSession?.contextLine ?? "";
+  setElementVisible(modalContextElement, Boolean(unblockChallengeSession?.contextLine));
+  renderConsequenceChoices(step);
+  modalPhraseElement.textContent = waitingForChoice
+    ? "Choose your sacrifice to unlock the final sentence."
+    : resolvedPhrase;
+  modalPhraseElement.classList.toggle("pending", waitingForChoice);
   modalInputElement.value = "";
-  modalInputElement.placeholder = "Type the phrase exactly";
+  modalInputElement.disabled = waitingForChoice || unblockBusy;
+  modalInputElement.placeholder = waitingForChoice
+    ? "Pick a consequence first"
+    : "Type the phrase exactly";
   modalErrorElement.textContent = "";
-  modalConfirmButtonElement.textContent =
-    unblockStepIndex === UNBLOCK_STEPS.length - 1 ? "GIVE UP" : "Continue";
-  modalConfirmButtonElement.disabled = unblockBusy;
+  modalConfirmButtonElement.textContent = step.buttonLabel;
+  modalConfirmButtonElement.disabled = unblockBusy || waitingForChoice;
   modalCancelButtonElement.disabled = unblockBusy;
+}
+
+function focusActiveModalControl() {
+  const step = getCurrentModalStep();
+
+  if (step?.consequenceOptions?.length && !getSelectedConsequence(step)) {
+    modalChoiceListElement.querySelector("button[data-consequence-id]")?.focus();
+    return;
+  }
+
+  modalInputElement.focus();
 }
 
 modalPhraseElement.addEventListener("copy", (event) => {
@@ -463,15 +636,24 @@ modalPhraseElement.addEventListener("cut", (event) => {
 });
 
 function openUnblockModal() {
-  unblockStepIndex = 0;
-  unblockBusy = false;
-  renderModal();
-  setElementVisible(unblockOverlayElement, true);
-  modalInputElement.focus();
+  return buildUnblockChallengeSession().then((challengeSession) => {
+    unblockChallengeSession = challengeSession;
+    unblockStepIndex = 0;
+    selectedConsequenceId = "";
+    unblockBusy = false;
+    document.body.classList.add("modal-open");
+    renderModal();
+    setElementVisible(unblockOverlayElement, true);
+    focusActiveModalControl();
+  });
 }
 
 function closeUnblockModal() {
   setElementVisible(unblockOverlayElement, false);
+  document.body.classList.remove("modal-open");
+  unblockStepIndex = 0;
+  unblockChallengeSession = null;
+  selectedConsequenceId = "";
   unblockBusy = false;
 }
 
@@ -824,7 +1006,16 @@ modeActionButtonElement.addEventListener("click", async () => {
   const popupState = getPopupState(currentSettings, currentRuntimeState);
 
   if (popupState === POPUP_STATES.DEFENDING || popupState === POPUP_STATES.ARMED) {
-    openUnblockModal();
+    modeActionButtonElement.disabled = true;
+
+    try {
+      await openUnblockModal();
+    } catch (error) {
+      console.error("Brainrot Defender unblock modal open failed.", error);
+    } finally {
+      modeActionButtonElement.disabled = false;
+    }
+
     return;
   }
 
@@ -856,22 +1047,54 @@ modalCancelButtonElement.addEventListener("click", () => {
   }
 });
 
+modalChoiceListElement.addEventListener("click", (event) => {
+  if (unblockBusy) {
+    return;
+  }
+
+  const button = event.target.closest("button[data-consequence-id]");
+
+  if (!button) {
+    return;
+  }
+
+  selectedConsequenceId = button.dataset.consequenceId || "";
+  modalErrorElement.textContent = "";
+  renderModal();
+  focusActiveModalControl();
+});
+
 modalConfirmButtonElement.addEventListener("click", async () => {
-  if (!isMatchingUnblockPhrase(unblockStepIndex, modalInputElement.value)) {
+  const step = getCurrentModalStep();
+  const selectedConsequence = getSelectedConsequence(step);
+
+  if (!step) {
+    return;
+  }
+
+  if (step.consequenceOptions?.length && !selectedConsequence) {
+    modalErrorElement.textContent = "Pick the consequence first.";
+    focusActiveModalControl();
+    return;
+  }
+
+  if (!isMatchingUnblockPhrase(step, modalInputElement.value, selectedConsequence)) {
     modalErrorElement.textContent = "Phrase mismatch. Copy it exactly.";
     modalInputElement.focus();
     modalInputElement.select();
     return;
   }
 
-  if (unblockStepIndex < UNBLOCK_STEPS.length - 1) {
+  if (unblockStepIndex < (unblockChallengeSession?.steps?.length ?? 0) - 1) {
     unblockStepIndex += 1;
+    selectedConsequenceId = "";
     renderModal();
-    modalInputElement.focus();
+    focusActiveModalControl();
     return;
   }
 
   unblockBusy = true;
+  modalInputElement.disabled = true;
   modalConfirmButtonElement.disabled = true;
   modalCancelButtonElement.disabled = true;
   modalErrorElement.textContent = "";
@@ -884,6 +1107,7 @@ modalConfirmButtonElement.addEventListener("click", async () => {
   } catch (error) {
     console.error("Brainrot Defender unblock flow failed.", error);
     unblockBusy = false;
+    modalInputElement.disabled = false;
     modalConfirmButtonElement.disabled = false;
     modalCancelButtonElement.disabled = false;
     modalErrorElement.textContent = error?.message || "Disable failed.";

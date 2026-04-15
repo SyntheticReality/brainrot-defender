@@ -480,6 +480,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === "brainrot-get-blocked-context") {
+    const requestedTabId =
+      Number.isInteger(message?.tabId) && message.tabId >= 0
+        ? message.tabId
+        : Number.isInteger(sender.tab?.id)
+          ? sender.tab.id
+          : null;
+
     Promise.all([
       getBlockedTabContexts(),
       chrome.storage.local.get([
@@ -495,7 +502,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(([contexts, runtimeState]) => {
         sendResponse({
           ok: true,
-          context: sender.tab?.id ? contexts[String(sender.tab.id)] ?? null : null,
+          context:
+            requestedTabId !== null ? contexts[String(requestedTabId)] ?? null : null,
           attemptStats: normalizeAttemptStats(runtimeState[ATTEMPT_STATS_KEY]),
           runtimeState
         });

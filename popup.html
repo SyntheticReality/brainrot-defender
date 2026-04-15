@@ -43,6 +43,10 @@
         font-family: "Segoe UI Variable", Aptos, sans-serif;
       }
 
+      body.modal-open {
+        overflow: hidden;
+      }
+
       main {
         width: 100%;
         padding: 8px;
@@ -85,6 +89,7 @@
         display: flex;
         gap: 10px;
         align-items: center;
+        justify-content: center;
       }
 
       .save-row,
@@ -737,8 +742,11 @@
         position: fixed;
         inset: 0;
         display: grid;
-        place-items: center;
+        align-items: start;
+        justify-items: center;
         padding: 18px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         background: rgba(2, 2, 6, 0.72);
         backdrop-filter: blur(8px);
       }
@@ -748,6 +756,9 @@
         display: grid;
         gap: 14px;
         padding: 18px;
+        max-height: calc(100vh - 36px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         border-radius: 22px;
         border: 1px solid rgba(255, 79, 128, 0.22);
         background: linear-gradient(155deg, rgba(31, 12, 32, 0.98), rgba(16, 8, 22, 0.98));
@@ -758,6 +769,70 @@
         text-align: center;
       }
 
+      .modal-context {
+        margin: 0;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(217, 255, 47, 0.08);
+        border: 1px solid rgba(217, 255, 47, 0.16);
+        color: #f3ffd7;
+        font-size: 0.82rem;
+        line-height: 1.4;
+      }
+
+      .modal-choice-group {
+        display: grid;
+        gap: 10px;
+      }
+
+      .modal-choice-label,
+      .modal-description-label {
+        color: #f3d9e6;
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: center;
+      }
+
+      .modal-choice-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .consequence-option {
+        width: 100%;
+        display: grid;
+        gap: 4px;
+        padding: 12px;
+        text-align: center;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff4f8;
+        box-shadow: none;
+      }
+
+      .consequence-option[aria-pressed="true"] {
+        border-color: rgba(217, 255, 47, 0.42);
+        background:
+          linear-gradient(180deg, rgba(217, 255, 47, 0.14), rgba(217, 255, 47, 0.03)),
+          rgba(255, 255, 255, 0.06);
+        box-shadow: 0 0 0 1px rgba(217, 255, 47, 0.16) inset;
+      }
+
+      .consequence-option strong {
+        font-size: 0.92rem;
+        text-align: center;
+      }
+
+      .consequence-option span {
+        color: #ffd8e4;
+        font-size: 0.82rem;
+        line-height: 1.4;
+        text-align: center;
+        text-transform: none;
+      }
+
       .challenge-phrase {
         padding: 12px;
         border-radius: 14px;
@@ -765,6 +840,12 @@
         border: 1px dashed rgba(217, 255, 47, 0.26);
         user-select: none;
         -webkit-user-select: none;
+      }
+
+      .challenge-phrase.pending {
+        color: #d2b9c3;
+        border-style: solid;
+        border-color: rgba(255, 255, 255, 0.1);
       }
 
       .error-copy {
@@ -880,7 +961,12 @@
     <div class="overlay" id="unblock-overlay" hidden>
       <section class="modal">
         <h2 id="modal-title">ARE YOU SURE?!</h2>
-        <p class="status-copy" id="modal-description"></p>
+        <p class="modal-context" id="modal-context" hidden></p>
+        <p class="modal-description-label" id="modal-description"></p>
+        <div class="modal-choice-group" id="modal-choice-group" hidden>
+          <div class="modal-choice-label" id="modal-choice-label"></div>
+          <div class="modal-choice-list" id="modal-choice-list"></div>
+        </div>
         <div class="challenge-phrase" id="modal-phrase"></div>
         <input id="modal-input" type="text" autocomplete="off" />
         <p class="error-copy" id="modal-error"></p>
